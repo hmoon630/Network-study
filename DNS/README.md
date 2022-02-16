@@ -18,6 +18,16 @@ Local Hosts 파일 > DNS cache table > DNS Server 순서로 참조하게 된다.
 DNS 쿼리는 재귀적으로, 반복적으로 진행된다. 루트 DNS부터 점차 하위 도메인을 관리하는 DNS서버로 반복적으로 쿼리를 수행한다.
 ![query](https://mblogthumb-phinf.pstatic.net/20140302_83/gaegurijump_1393757149696l61z9_PNG/DNS4.png?type=w2)
 
+## DNS Record의 종류
+|Record |설명|
+|---    |---|
+|A      |호스트의 IPv4주소입니다.                               |
+|AAAA   |호스트의 IPv6주소입니다.                               |
+|CNAME  |다른 도메인이나 하위 도메인으로 포워딩합니다. ip 주소가 아닌 example.com과 같은 도메인을 가지고 있습니다.                             |
+|MX     |메일 서버에 도달할 수 있는 정보를 가지고 있습니다.       |
+|PTR    |ip > domain 으로의 역방향 조회를 위한 레코드입니다.     |
+|NS     |해당 도메인을 관리하는 네임서버를 담은 레코드입니다.     |
+|SOA    |도메인의 정보를 담은 레코드입니다. 마스터 네임서버, 관리자 연락처, 데이터 동기화 시간, 갱신주기, 시도, 만료 등 정보를 담고 있습니다.        |
 
 ## Reference
 [DNS(Domain Name System) 란?](https://m.blog.naver.com/PostView.naver?isHttpsRedirect=true&blogId=gaegurijump&logNo=110186376474)
