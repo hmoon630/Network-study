@@ -83,3 +83,54 @@ BGP 역시 네트워크 정보를 주고 받지만, 다익스트라 알고리즘
 리눅스 환경에서는 /etc/netsvc.conf 파일을 변경하여 /etc/hosts와 /etc/resolv.conf의 참조 순서를 변경할 수 있습니다.
 
 윈도우의 경우 ICS(internet connection sharing, VM이나 WSL등에 인터넷 연결 공유를 위해 주로 사용됨)를 위해 hosts.ics 파일을 사용하게 되는데, 이 파일이 hosts 파일보다 우선 참조합니다.
+
+----------
+
+## TCP 3 handshake에서 첫 연결 시도시 발생하는 문제?
+
+### Connection timeout
+클라이언트와 서버에 연결(tcp 3-way handshake)하고자 하였으나, 서버 측의 장애나 오류등으로 연결이 맺어지지 않았을 때 발생합니다.
+
+TCP 연결 과정은 다음과 같은데, 
+1. 클라이언트 A가 서버 B에 SYN을 보낸다. A는 SYN_SENT 상태가 된다.
+2. B가 SYN 요청을 받고 A에 SYN/ACK를 보낸다. B는 SYN_RECEIVED 상태가 된다.
+3. A가 SYN/ACK를 받고 B서버에 ACK를 보낸다. A는 ESTABLISHED가 되고, B는 ACK를 받고 ESTABLISHED가 된다.
+
+이 과정에서 클라이언트 A가 ESTABLISHED 되지 않고 Timeout 되었을 경우 Connection timeout이 발생합니다. 이는 주로 방화벽에 차단되는 등의 이유로 오류가 발생합니다.
+
+### SYN Flooding
+SYN Flooding은 Dos 공격 기법중 하나로, TCP 3-way handshake의 취약점을 이용하여 공격합니다.
+
+서버는 클라이언트로부터 연결 요청(SYN)을 받고 Backlog Queue에 연결 요청 정보를 저장하게 되는데, 클라이언트가 ACK를 보내지 않을 경우 Queue에 계속 남아있게 됩니다. 이를 계속해서 많은 클라이언트로부터 동시에 요청을 받아 Queue가 가득 찰 경우 다른 연결을 받지 못하게 됩니다.
+
+이에 대한 대응책으로는
+- Backlog Queue의 크기를 늘린다. 다만, 이는 임시적으로 해결할 뿐이다.
+- SYN Cookie를 설정한다. Queue에 연결 정보를 저장하는 것이 아닌, 쿠키에 정보를 넣고 ACK를 받았을 때 쿠키의 값을 검증한다.
+- 동일 IP로부터 오는 SYN의 임계치를 설정한다.
+- TCP 연결 대기시간을 줄인다.
+
+----------
+
+## TCP 4 handshake에서 리눅스 소켓 close wait과 time wait의 차이점
+
+4-way handshake는 다음의 과정을 거치게 됩니다.
+![4way](https://img1.daumcdn.net/thumb/R1280x0/?scode=mtistory2&fname=https%3A%2F%2Fblog.kakaocdn.net%2Fdn%2FtQR1l%2FbtqyJRYdm3E%2F143elB5WCHDlofiAsax2J1%2Fimg.png)
+[이미지 출처](https://seongonion.tistory.com/74)
+
+위의 이미지에서 각 소켓의 상태는 다음과 같습니다.
+- ESTABLISHED: 연결이 되어 있어 서로 통신이 가능한 상태
+- FIN-WAIT-1: 연결을 종료하고자 FIN을 보냈고, 상대방의 ACK나 FIN의 수신을 기다리는 상태
+- FIN-WAIT-2: 연결 종료 FIN에 대한 ACK를 받았고, 상대방의 FIN의 수신을 기다리는 상태
+- CLOSE-WAIT: 상대방으로부터 FIN을 수신하고 ACK를 보낸 상태. 남아있는 패킷이 있다면 그때까지 기다린다.
+- LAST-ACK: CLOSE-WAIT이후 상대방에게 FIN을 보내어 ACK를 기다리는 상태
+- TIME-WAIT: 모든 FIN에 대한 ACK를 받아 연결을 종료한 상태.
+
+CLOSE-WAIT은 FIN의 요청을 받고 ACK에 대해 응답을 마친 상태입니다. 하지만 자신이 보내야 할 패킷이 남아있는 경우 모두 보내고 난 후 FIN을 다시 보내게 됩니다.
+
+TIME-WAIT은 양측이 보낸 FIN이 모두 처리된 상태입니다. 하지만 패킷 손실에 의한 재전송을 대비하여 존재하는 소켓입니다.
+
+## 각 단계에서 나올수 있는 문제들
+
+### CLOSE-WAIT 무한 대기
+
+FIN을 요청받은 측(Passive closer)은 ACK응답한 후 CLOSE-WAIT 상태에 들어가게 됩니다. 하지만 명시적으로 close() 해주지 않는다면 무한 대기상태가 될 수 있습니다.
